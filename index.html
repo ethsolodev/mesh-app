@@ -1,92 +1,52 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Solo Share Ethiopia</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #fdfdfd; }
-        .card { background: white; padding: 20px; border-radius: 15px; border: 1px solid #ddd; max-width: 400px; margin: auto; }
-        button { background: #28a745; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        input { padding: 12px; border: 1px solid #ccc; border-radius: 8px; width: 80%; margin-bottom: 10px; }
-        #status { color: #555; margin: 15px 0; font-size: 0.9em; }
-        #error-msg { color: red; font-size: 0.8em; margin-top: 10px; }
-    </style>
-</head>
-<body>
+function handleCommunication() {
+        conn.on('open', () => {
+            document.getElementById('status').innerText = "🟢 Connected to Peer!";
+        });
 
-<div class="card">
-    <h2>Solo Share 2.0</h2>
-    <div id="status">Connecting to network...</div>
-    <p><strong>Your ID:</strong> <span id="my-id">---</span></p>
-    
-    <input type="text" id="receiver-id" placeholder="Paste Friend's ID here">
-    <button onclick="connectToFriend()">Connect to Peer</button>
-    
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-    
-    <input type="file" id="file-input">
-    <button onclick="sendFile()" style="background: #007bff;">Send File</button>
-    
-    <div id="download-area"></div>
-    <div id="error-msg"></div>
-</div>
-
-<script>
-    // We added "debug: 3" so it tells us everything in the console
-    const peer = new Peer({
-        debug: 3,
-        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} 
-    });
-
-    peer.on('open', (id) => {
-        document.getElementById('my-id').innerText = id;
-        document.getElementById('status').innerText = "✅ Online & Ready";
-    });
-
-    peer.on('error', (err) => {
-        console.error(err);
-        document.getElementById('error-msg').innerText = "Error: " + err.type;
-        if(err.type === 'browser-incompatible') {
-            document.getElementById('status').innerText = "❌ Browser not supported";
-        }
-    });
-
-    let conn;
-    peer.on('connection', (connection) => {
-        conn = connection;
-        startReady();
-    });
-
-    function connectToFriend() {
-        const friendId = document.getElementById('receiver-id').value;
-        if (!friendId) return alert("Enter an ID first!");
-        conn = peer.connect(friendId);
-        startReady();
-    }
-
-    function startReady() {
-        document.getElementById('status').innerText = "🔗 Connected to Peer!";
+        // When a file is received
         conn.on('data', (data) => {
             const blob = new Blob([data.file], { type: data.type });
             const url = URL.createObjectURL(blob);
-            document.getElementById('download-area').innerHTML = 
-                <div style="margin-top:20px; padding:10px; background:#e9fce9; border-radius:10px;">
-                    <p>File Received: ${data.name}</p>
-                    <a href="${url}" download="${data.name}" style="color:#28a745; font-weight:bold;">Click to Download</a>
-                </div>;
+            
+            document.getElementById('download-area').style.display = "block";
+            document.getElementById('file-info').innerText = "Received: " + data.name;
+            const dlBtn = document.getElementById('download-btn');
+            dlBtn.href = url;
+            dlBtn.download = data.name;
+            
+            document.getElementById('status').innerText = "📩 File Received!";
+        });
+
+        conn.on('close', () => {
+            document.getElementById('status').innerText = "❌ Disconnected";
         });
     }
 
     function sendFile() {
-        const file = document.getElementById('file-input').files[0];
-        if (!file || !conn) return alert("Connect to a peer and select a file!");
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
         
-        document.getElementById('status').innerText = "📤 Sending...";
-        conn.send({ file: file, name: file.name, type: file.type });
+        if (!conn || !conn.open) return alert("Connect to a friend first!");
+        if (!file) return alert("Please select a file to send");
+
+        document.getElementById('status').innerText = "📤 Sending: " + file.name;
         
-        setTimeout(() => { document.getElementById('status').innerText = "✅ Sent Successfully!"; }, 2000);
+        conn.send({
+            file: file,
+            name: file.name,
+            type: file.type
+        });
+
+        setTimeout(() => {
+            document.getElementById('status').innerText = "✅ Sent Successfully!";
+        }, 2000);
     }
+
+    // Handle network errors automatically
+    peer.on('error', (err) => {
+        document.getElementById('status').innerText = "⚠️ Connection Error";
+        console.error('PeerJS Error:', err);
+    });
 </script>
 
 </body>
