@@ -3,86 +3,89 @@
 <head>
     <title>Solo Share Ethiopia</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px; }
-        input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 80%; }
-        #status { color: green; font-weight: bold; margin: 10px; }
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #fdfdfd; }
+        .card { background: white; padding: 20px; border-radius: 15px; border: 1px solid #ddd; max-width: 400px; margin: auto; }
+        button { background: #28a745; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        input { padding: 12px; border: 1px solid #ccc; border-radius: 8px; width: 80%; margin-bottom: 10px; }
+        #status { color: #555; margin: 15px 0; font-size: 0.9em; }
+        #error-msg { color: red; font-size: 0.8em; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Solo Share</h2>
-    <p>Your ID: <span id="my-id">...Loading...</span></p>
+    <h2>Solo Share 2.0</h2>
+    <div id="status">Connecting to network...</div>
+    <p><strong>Your ID:</strong> <span id="my-id">---</span></p>
     
-    <hr>
+    <input type="text" id="receiver-id" placeholder="Paste Friend's ID here">
+    <button onclick="connectToFriend()">Connect to Peer</button>
     
-    <input type="text" id="receiver-id" placeholder="Type Friend's ID here">
-    <button onclick="connectToFriend()">Connect</button>
-    
-    <div id="status">Status: Waiting...</div>
-    
-    <hr>
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
     
     <input type="file" id="file-input">
-    <button onclick="sendFile()">Send File</button>
+    <button onclick="sendFile()" style="background: #007bff;">Send File</button>
     
     <div id="download-area"></div>
+    <div id="error-msg"></div>
 </div>
 
 <script>
-    const peer = new Peer(); // Create the connection object
-    let conn;
+    // We added "debug: 3" so it tells us everything in the console
+    const peer = new Peer({
+        debug: 3,
+        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} 
+    });
 
-    // 1. Show your ID so you can tell your friend
     peer.on('open', (id) => {
         document.getElementById('my-id').innerText = id;
-        document.getElementById('status').innerText = "Status: Online. Share your ID!";
+        document.getElementById('status').innerText = "✅ Online & Ready";
     });
 
-    // 2. Wait for a friend to connect to YOU
+    peer.on('error', (err) => {
+        console.error(err);
+        document.getElementById('error-msg').innerText = "Error: " + err.type;
+        if(err.type === 'browser-incompatible') {
+            document.getElementById('status').innerText = "❌ Browser not supported";
+        }
+    });
+
+    let conn;
     peer.on('connection', (connection) => {
         conn = connection;
-        setupReceiver();
+        startReady();
     });
 
-    // 3. You connect to a FRIEND
     function connectToFriend() {
         const friendId = document.getElementById('receiver-id').value;
+        if (!friendId) return alert("Enter an ID first!");
         conn = peer.connect(friendId);
-        setupReceiver();
+        startReady();
     }
 
-    function setupReceiver() {
-        document.getElementById('status').innerText = "Status: Connected!";
-        
+    function startReady() {
+        document.getElementById('status').innerText = "🔗 Connected to Peer!";
         conn.on('data', (data) => {
-            // This happens when you receive a file
             const blob = new Blob([data.file], { type: data.type });
             const url = URL.createObjectURL(blob);
             document.getElementById('download-area').innerHTML = 
-                <br><a href="${url}" download="${data.name}">📥 Download Received File</a>;
+                <div style="margin-top:20px; padding:10px; background:#e9fce9; border-radius:10px;">
+                    <p>File Received: ${data.name}</p>
+                    <a href="${url}" download="${data.name}" style="color:#28a745; font-weight:bold;">Click to Download</a>
+                </div>;
         });
     }
 
-    // 4. Send the file
     function sendFile() {
         const file = document.getElementById('file-input').files[0];
-        if (!file) return alert("Select a file first!");
+        if (!file || !conn) return alert("Connect to a peer and select a file!");
         
-        document.getElementById('status').innerText = "Status: Sending...";
+        document.getElementById('status').innerText = "📤 Sending...";
+        conn.send({ file: file, name: file.name, type: file.type });
         
-        conn.send({
-            file: file,
-            name: file.name,
-            type: file.type
-        });
-        
-        setTimeout(() => {
-            document.getElementById('status').innerText = "Status: Sent!";
-        }, 1000);
+        setTimeout(() => { document.getElementById('status').innerText = "✅ Sent Successfully!"; }, 2000);
     }
 </script>
 
