@@ -1,52 +1,90 @@
-function handleCommunication() {
-        conn.on('open', () => {
-            document.getElementById('status').innerText = "🟢 Connected to Peer!";
-        });
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Solo Share Ethiopia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 80%; }
+        #status { color: green; font-weight: bold; margin: 10px; }
+    </style>
+</head>
+<body>
 
-        // When a file is received
+<div class="card">
+    <h2>Solo Share</h2>
+    <p>Your ID: <span id="my-id">...Loading...</span></p>
+    
+    <hr>
+    
+    <input type="text" id="receiver-id" placeholder="Type Friend's ID here">
+    <button onclick="connectToFriend()">Connect</button>
+    
+    <div id="status">Status: Waiting...</div>
+    
+    <hr>
+    
+    <input type="file" id="file-input">
+    <button onclick="sendFile()">Send File</button>
+    
+    <div id="download-area"></div>
+</div>
+
+<script>
+    const peer = new Peer(); // Create the connection object
+    let conn;
+
+    // 1. Show your ID so you can tell your friend
+    peer.on('open', (id) => {
+        document.getElementById('my-id').innerText = id;
+        document.getElementById('status').innerText = "Status: Online. Share your ID!";
+    });
+
+    // 2. Wait for a friend to connect to YOU
+    peer.on('connection', (connection) => {
+        conn = connection;
+        setupReceiver();
+    });
+
+    // 3. You connect to a FRIEND
+    function connectToFriend() {
+        const friendId = document.getElementById('receiver-id').value;
+        conn = peer.connect(friendId);
+        setupReceiver();
+    }
+
+    function setupReceiver() {
+        document.getElementById('status').innerText = "Status: Connected!";
+        
         conn.on('data', (data) => {
+            // This happens when you receive a file
             const blob = new Blob([data.file], { type: data.type });
             const url = URL.createObjectURL(blob);
-            
-            document.getElementById('download-area').style.display = "block";
-            document.getElementById('file-info').innerText = "Received: " + data.name;
-            const dlBtn = document.getElementById('download-btn');
-            dlBtn.href = url;
-            dlBtn.download = data.name;
-            
-            document.getElementById('status').innerText = "📩 File Received!";
-        });
-
-        conn.on('close', () => {
-            document.getElementById('status').innerText = "❌ Disconnected";
+            document.getElementById('download-area').innerHTML = 
+                <br><a href="${url}" download="${data.name}">📥 Download Received File</a>;
         });
     }
 
+    // 4. Send the file
     function sendFile() {
-        const fileInput = document.getElementById('file-input');
-        const file = fileInput.files[0];
+        const file = document.getElementById('file-input').files[0];
+        if (!file) return alert("Select a file first!");
         
-        if (!conn || !conn.open) return alert("Connect to a friend first!");
-        if (!file) return alert("Please select a file to send");
-
-        document.getElementById('status').innerText = "📤 Sending: " + file.name;
+        document.getElementById('status').innerText = "Status: Sending...";
         
         conn.send({
             file: file,
             name: file.name,
             type: file.type
         });
-
+        
         setTimeout(() => {
-            document.getElementById('status').innerText = "✅ Sent Successfully!";
-        }, 2000);
+            document.getElementById('status').innerText = "Status: Sent!";
+        }, 1000);
     }
-
-    // Handle network errors automatically
-    peer.on('error', (err) => {
-        document.getElementById('status').innerText = "⚠️ Connection Error";
-        console.error('PeerJS Error:', err);
-    });
 </script>
 
 </body>
